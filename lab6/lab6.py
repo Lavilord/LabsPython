@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, abort
-from flask_sqlalchemy import SQLAlchemy, Model
+from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 import copy
 import json
@@ -37,7 +37,7 @@ class AnimalModel(Animal, db.Model):
 
 class AnimalSchema(ma.Schema):
     class Meta:
-        fields = ("weight_in_grams", "price", "origin_country", "is_predator", "eats_in_grams")
+        fields = ("weight_in_grams", "price", "origin_country", "is_predator", "eats_in_grams", "id")
 
 
 animal_schema = AnimalSchema()
@@ -46,14 +46,11 @@ animals_schema = AnimalSchema(many=True)
 
 @app.route("/animal", methods=["POST"])
 def add_animal():
-    animal = AnimalModel(request.json["weight_in_grams"],
-                         request.json["price"],
-                         request.json["origin_country"],
-                         request.json["is_predator"],
-                         request.json["eats_in_grams"])
+    deserialized_data = AnimalSchema().load(request.json)
+    animal = AnimalModel(**deserialized_data)
     db.session.add(animal)
     db.session.commit()
-    return animal_schema.jsonify(animal), animal.id
+    return animal_schema.jsonify(animal)
 
 
 @app.route("/animal", methods=["GET"])
@@ -77,11 +74,12 @@ def update_animal(id):
     if not animal:
         abort(404)
     old_animal = copy.deepcopy(animal)
-    animal.weight_in_grams = request.json["weight_in_grams"]
-    animal.price = request.json["price"]
-    animal.origin_country = request.json["origin_country"]
-    animal.is_predator = request.json["is_predator"]
-    animal.eats_in_grams = request.json["eats_in_grams"]
+    deserialized_data = AnimalSchema().load(request.json)
+    animal.weight_in_grams = deserialized_data["weight_in_grams"]
+    animal.price = deserialized_data["price"]
+    animal.origin_country = deserialized_data["origin_country"]
+    animal.is_predator = deserialized_data["is_predator"]
+    animal.eats_in_grams = deserialized_data["eats_in_grams"]
     db.session.commit()
     return animal_schema.jsonify(old_animal)
 
@@ -103,5 +101,4 @@ def hello_world():
 
 if __name__ == "__main__":
     db.create_all()
-    app.run(debug=True, host="127.0.0.1")
-
+    app.run(debug=True)
